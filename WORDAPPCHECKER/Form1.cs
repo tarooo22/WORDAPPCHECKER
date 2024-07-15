@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.Windows.Forms;
+using WordApp = Microsoft.Office.Interop.Word.Application;
 
 namespace WordFileChecker
 {
@@ -13,9 +14,14 @@ namespace WordFileChecker
         public Form1()
         {
             InitializeComponent();
+            InitializeCheckedListBox();
 
             
-            InitializeCheckedListBox();
+            btnBrowseControlFile.Click += btnBrowseControlFile_Click;
+            btnBrowseControlFolder.Click += btnBrowseControlFolder_Click;
+            btnCompareFiles.Click += btnCompareFiles_Click;
+            btnAbout.Click += btnAbout_Click;
+            btnSettings.Click += btnSettings_Click;
         }
 
         private void InitializeCheckedListBox()
@@ -62,122 +68,106 @@ namespace WordFileChecker
 
         private void lstStudentFiles_DragDrop(object sender, DragEventArgs e)
         {
-            string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
-            foreach (string file in files)
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
-                if (file.EndsWith(".doc") || file.EndsWith(".docx"))
-                {
-                    lstStudentFiles.Items.Add(file);
-                }
+                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                lstStudentFiles.Items.AddRange(files);
             }
         }
 
         private void btnCompareFiles_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrEmpty(controlFilePath) && string.IsNullOrEmpty(controlFolderPath))
+            if (controlFilePath == null && controlFolderPath == null)
             {
-                MessageBox.Show("Please select the control Word file or folder first.");
+                MessageBox.Show("Please select a control file or folder.");
                 return;
             }
 
             if (lstStudentFiles.Items.Count == 0)
             {
-                MessageBox.Show("Please drop student Word files to compare.");
+                MessageBox.Show("Please add student files to compare.");
                 return;
             }
 
-            foreach (string studentFilePath in lstStudentFiles.Items)
+            foreach (string studentFile in lstStudentFiles.Items)
             {
-                CompareDocuments(controlFilePath, studentFilePath);
+                if (controlFilePath != null)
+                {
+                    CompareFiles(controlFilePath, studentFile);
+                }
+                else if (controlFolderPath != null)
+                {
+                    string controlFile = Path.Combine(controlFolderPath, Path.GetFileName(studentFile));
+                    if (File.Exists(controlFile))
+                    {
+                        CompareFiles(controlFile, studentFile);
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Control file for {Path.GetFileName(studentFile)} not found.");
+                    }
+                }
             }
-
-            MessageBox.Show("shedareba dasrulda.");
         }
 
-        private void CompareDocuments(string controlFilePath, string studentFilePath)
+        private void CompareFiles(string controlFilePath, string studentFilePath)
         {
-            Microsoft.Office.Interop.Word.Application wordApp = new Microsoft.Office.Interop.Word.Application();
-            Microsoft.Office.Interop.Word.Document controlDoc = null;
-            Microsoft.Office.Interop.Word.Document studentDoc = null;
+            WordApp wordApp = new WordApp();
+            Document controlDoc = null;
+            Document studentDoc = null;
 
             try
             {
+               
                 controlDoc = wordApp.Documents.Open(controlFilePath);
+
                 studentDoc = wordApp.Documents.Open(studentFilePath);
 
-                object missing = Type.Missing;
-                wordApp.CompareDocuments(
-                    OriginalDocument: controlDoc,
-                    RevisedDocument: studentDoc,
-                    Destination: WdCompareDestination.wdCompareDestinationNew,
-                    Granularity: WdGranularity.wdGranularityWordLevel,
-                    CompareFormatting: true,
-                    CompareCaseChanges: false,
-                    CompareWhitespace: false,
-                    CompareTables: true,
-                    CompareHeaders: true,
-                    CompareFootnotes: true,
-                    CompareTextboxes: true,
-                    CompareFields: true,
-                    CompareComments: true,
-                    CompareMoves: true
-                );
+                
+                string resultPath = Path.Combine(Path.GetDirectoryName(studentFilePath), $"{Path.GetFileNameWithoutExtension(studentFilePath)}_ComparisonResult.docx");
 
-                string resultPath = string.Empty;
+                
+                controlDoc.SaveAs2(resultPath); 
 
-                if (!string.IsNullOrEmpty(controlFolderPath))
-                {
-                    resultPath = Path.Combine(
-                        controlFolderPath,
-                        $"{Path.GetFileNameWithoutExtension(studentFilePath)}_comparison{Path.GetExtension(studentFilePath)}"
-                    );
-                }
-                else
-                {
-                    resultPath = Path.Combine(
-                        Path.GetDirectoryName(studentFilePath),
-                        $"{Path.GetFileNameWithoutExtension(studentFilePath)}_comparison{Path.GetExtension(studentFilePath)}"
-                    );
-                }
-
-                Microsoft.Office.Interop.Word.Document comparedDoc = wordApp.ActiveDocument;
-                comparedDoc.SaveAs2(resultPath);
-
-                comparedDoc.Close(false);
-
-                controlDoc.Close(false);
-                studentDoc.Close(false);
-
-                AddWordToList($"shedareba dasrulda : {Path.GetFileName(studentFilePath)}");
+                
+                MessageBox.Show($"Comparison of {Path.GetFileName(studentFilePath)} completed. Results saved to {resultPath}");
             }
             catch (Exception ex)
             {
+                
                 MessageBox.Show($"An error occurred: {ex.Message}");
             }
             finally
             {
+                
+                if (controlDoc != null) controlDoc.Close(false);
+                if (studentDoc != null) studentDoc.Close(false);
                 wordApp.Quit();
             }
         }
 
-        private void AddWordToList(string word)
+        private void btnAbout_Click(object sender, EventArgs e)
         {
-            if (checkedListBox1.InvokeRequired)
-            {
-                Invoke(new Action<string>(AddWordToList), word);
-            }
-            else
-            {
-                checkedListBox1.Items.Add(word);
-            }
+            AboutForm aboutForm = new AboutForm();
+            aboutForm.ShowDialog();
         }
 
-        private void groupBox2_Enter(object sender, EventArgs e)
+        private void btnSettings_Click(object sender, EventArgs e)
         {
-
+            SettingsForm settingsForm = new SettingsForm();
+            settingsForm.ShowDialog();
         }
 
         private void Form1_Load(object sender, EventArgs e)
+        {
+        }
+
+        private void txtControlFilePath_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void lblControlFilePath_Click(object sender, EventArgs e)
         {
 
         }
