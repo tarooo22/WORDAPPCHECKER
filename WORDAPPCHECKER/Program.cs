@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Windows.Forms;
-using WordFileChecker;
 
-namespace WORDAPPCHECKER
+namespace WordFileChecker
 {
     internal static class Program
     {
-        
         [STAThread]
         static void Main()
         {
